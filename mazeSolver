@@ -1,0 +1,109 @@
+ # nodes list
+ # every step, if there is 1 possible move (exludes prev pos), move there
+ # if there are 0 possible moves, backtrack to previous node
+ # if there are >= 2 possible moves:
+	 # if pos in nodes, remove prevPos direction from branches[pos]
+		 # If there are no more directions on this node, backtrack to previous node
+		 # If there are, choose one to follow randomly
+	 # if pos not in nodes, add it to nodes, add it to branches with all possible dierctions - prev pos
+def startMaze(worldSize):
+	if can_harvest():
+		harvest()
+	reqSubstance = get_world_size() * 2**(num_unlocked(Unlocks.Mazes) - 1)
+	while num_items(Items.Weird_Substance) < reqSubstance:
+		if can_harvest():
+			harvest()
+		plant(Entities.Bush)
+		use_item(Items.Fertilizer, 1)
+		if can_harvest():
+			harvest()
+	plant(Entities.Bush)
+	use_item(Items.Weird_Substance, reqSubstance)
+def directionOf(pos, target):
+	diff = [pos[0] - target[0], pos[1] - target[1]]
+	if abs(diff[0]) > abs(diff[1]):
+		if diff[0] < 0:
+			return East
+		else:
+			return West
+	else:
+		if diff[1] < 0:
+			return North
+		else:
+			return South
+def possibleMoves(pos, prev, worldSize):
+	directions = [North, East, South, West]
+	positions = [(pos[0], pos[1] + 1), (pos[0] + 1, pos[1]), (pos[0], pos[1] - 1), (pos[0] - 1, pos[1])]
+	valid = [True, True, True, True]
+	for i in range(len(positions)):
+		valid[i] = positions[i][0] >= 0 and positions[i][0] < worldSize and positions[i][1] >= 0 and positions[i][1] < worldSize and can_move(directions[i]) and positions[i] != prev
+	removed = 0
+	for i in range(len(valid)):
+		if not valid[i]:
+			directions.pop(i - removed)
+			positions.pop(i - removed)
+			removed += 1
+	return directions, positions
+def run(main = False):
+	worldSize = get_world_size()
+	if main:
+		startMaze(worldSize)
+	
+	nodes = []
+	branches = {}
+	pos = (get_pos_x(), get_pos_y())
+	prev = None
+	while get_entity_type() == Entities.Hedge:
+		directions, positions = possibleMoves(pos, prev, worldSize)
+		if len(directions) == 0:
+			target = prev
+			while len(directions) <= 1:
+				move(directionOf(pos, target))
+				directions, positions = possibleMoves(target, pos, worldSize)
+				prev = pos
+				pos = target
+				target = positions[0]
+			if pos in nodes:
+				branches[pos]['directions'].remove(directionOf(pos, prev))
+				branches[pos]['positions'].remove(prev)
+				prev = branches[pos]['prev']
+			else:
+				nodes.append(pos)
+				directions, positions = possibleMoves(pos, prev, worldSize)
+				branches[pos] = {'positions': positions, 'directions': directions, 'prev': prev}
+		elif len(directions) == 1:
+			prev = pos
+			pos = (positions[0][0], positions[0][1])
+			move(directions[0])
+		elif len(directions) >= 2:
+			if pos in nodes:
+				positions = branches[pos]['positions']
+				directions = branches[pos]['directions']
+			else:
+				nodes.append(pos)
+				directions, positions = possibleMoves(pos, prev, worldSize)
+				branches[pos] = {'positions': positions, 'directions': directions, 'prev': prev}
+			if len(positions) < 1:
+				target = prev
+				while len(directions) <= 1 or target == prev:
+					move(directionOf(pos, target))
+					directions, positions = possibleMoves(target, pos, worldSize)
+					prev = pos
+					pos = target
+					target = positions[0]
+				if pos in nodes:
+					branches[pos]['directions'].remove(directionOf(pos, prev))
+					branches[pos]['positions'].remove(prev)
+					prev = branches[pos]['prev']
+				else:
+					nodes.append(pos)
+					directions, positions = possibleMoves(pos, prev, worldSize)
+					branches[pos] = {'positions': positions, 'directions': directions, 'prev': prev}
+			else:
+				prev = pos
+				pos = (positions[0][0], positions[0][1])
+				move(directions[0])
+	harvest()
+
+if __name__ == '__main__':
+	run(True)
